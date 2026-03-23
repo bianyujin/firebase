@@ -489,13 +489,7 @@ const CloudSync = {
         }
     },
 
-    async syncFromCloud() {
-        if (this.config.syncProvider === 'notion') {
-            await this.syncFromNotion();
-        } else if (this.config.syncProvider === 'firebase') {
-            await this.syncFromFirebase();
-        }
-    },
+
 
     async syncToNotion() {
         if (!this.config.notionToken || !this.config.notionDatabaseId) {
@@ -767,13 +761,12 @@ const CloudSync = {
         try {
             await this.loadCloudConfig();
 
-            if (this.config.notionCsvUrl) {
-                await this.syncFromNotionCsv();
-            } else if (this.config.gamesDataUrl) {
+            if (this.config.gamesDataUrl) {
                 await this.syncFromGamesJson();
-            } else {
-                App.showToast('数据地址未配置');
+                return;
             }
+            
+            App.showToast('数据地址未配置');
         } catch (e) {
             console.error('同步失败:', e);
             App.showToast('同步失败: ' + e.message);
@@ -1119,7 +1112,7 @@ const CloudSync = {
             } else if (this.config.firebaseConfig?.databaseURL) {
                 url = `${this.config.firebaseConfig.databaseURL}/config.json`;
             } else {
-                return false;
+                url = './config.json';
             }
             
             const headers = {};
