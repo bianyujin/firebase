@@ -1,6 +1,6 @@
 const AdminSystem = {
     config: {
-        adminPassword: 'admin123',
+        adminPassword: '520hd123',
         isAdmin: false,
         firebaseConfig: null
     },
@@ -46,7 +46,6 @@ const AdminSystem = {
     },
 
     openAdminLogin() {
-        const isFirstTime = !this.config.adminPassword || this.config.adminPassword === 'admin123';
         const modalHtml = `
             <div id="adminLoginModal" class="modal">
                 <div class="modal-backdrop" onclick="AdminSystem.closeAdminLogin()"></div>
@@ -56,7 +55,6 @@ const AdminSystem = {
                         <button class="close-btn" onclick="AdminSystem.closeAdminLogin()">&times;</button>
                     </div>
                     <div class="modal-body">
-                        ${isFirstTime ? '<p style="color: #f59e0b; margin-bottom: 12px;">默认密码: admin123</p>' : ''}
                         <div class="form-group">
                             <label class="form-label">管理员密码</label>
                             <input type="password" id="adminPassword" class="form-input" placeholder="请输入管理员密码">
