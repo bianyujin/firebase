@@ -17,30 +17,8 @@
 
         <main class="app-content" id="mainContent">
             <div id="page-home" class="page active">
-                <div class="search-section">
-                    <div class="search-box">
-                        <span class="search-icon">🔍</span>
-                        <input type="text" id="homeSearch" placeholder="搜索游戏...">
-                    </div>
-                </div>
-
-                <div class="carousel-section">
-                    <div class="carousel-container" id="carousel">
-                        <div class="carousel-track" id="carouselTrack"></div>
-                        <div class="carousel-dots" id="carouselDots"></div>
-                    </div>
-                </div>
-
                 <div class="section-header">
-                    <h2 class="section-title">游戏分类</h2>
-                </div>
-                <div class="categories-grid" id="homeCategories"></div>
-
-                <div class="section-header">
-                    <h2 class="section-title">热门游戏</h2>
-                    <button class="view-toggle" id="viewToggle">
-                        <span class="view-icon">📱</span>
-                    </button>
+                    <h2 class="section-title">所有游戏</h2>
                 </div>
                 <div class="games-grid" id="homeGames"></div>
             </div>
@@ -62,7 +40,6 @@
                                 <th class="th-icon">图标</th>
                                 <th class="th-name sortable" data-sort="title">名称</th>
                                 <th class="th-category sortable" data-sort="category">分类</th>
-                                <th class="th-rating sortable" data-sort="rating">评分</th>
                                 <th class="th-actions">操作</th>
                             </tr>
                         </thead>
@@ -73,6 +50,16 @@
                 <div class="table-footer">
                     <div class="footer-info" id="tableInfo"></div>
                     <div class="pagination" id="pagination"></div>
+                </div>
+            </div>
+
+            <div id="page-notion" class="page">
+                <header class="page-header">
+                    <button class="back-btn" id="notionBackBtn">← 返回</button>
+                    <h3 class="page-title">备用</h3>
+                </header>
+                <div class="webview-container" id="notionWebView">
+                    <iframe id="notionIframe" src="" style="width: 100%; height: 100%; border: none;"></iframe>
                 </div>
             </div>
 
@@ -126,17 +113,6 @@
                 </div>
 
                 <div class="settings-section">
-                    <h3 class="settings-title">管理员</h3>
-                    <div class="settings-list">
-                        <div class="settings-item">
-                            <span class="settings-icon">🔐</span>
-                            <span class="settings-label">管理面板</span>
-                            <button class="btn-small" id="adminPanelBtn">进入</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="settings-section">
                     <h3 class="settings-title">用户</h3>
                     <div class="settings-list">
                         <div class="settings-item" id="userInfoItem">
@@ -152,18 +128,23 @@
                     <div class="settings-list">
                         <div class="settings-item">
                             <span class="settings-icon">☁️</span>
-                            <span class="settings-label">云端设置</span>
-                            <button class="btn-small" id="cloudSettingsBtn">配置</button>
-                        </div>
-                        <div class="settings-item">
-                            <span class="settings-icon">⬆️</span>
-                            <span class="settings-label">同步到云端</span>
-                            <button class="btn-small" id="syncToCloudBtn">上传</button>
-                        </div>
-                        <div class="settings-item">
-                            <span class="settings-icon">⬇️</span>
                             <span class="settings-label">从云端获取</span>
-                            <button class="btn-small" id="syncFromCloudBtn">下载</button>
+                            <button class="btn-small" id="syncFromCloudBtn">同步</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h3 class="settings-title">更多</h3>
+                    <div class="settings-list">
+                        <div class="settings-item" id="notionBackupBtn">
+                            <span class="settings-icon">📋</span>
+                            <span class="settings-label">备用</span>
+                            <span class="settings-arrow">›</span>
+                        </div>
+                        <div class="settings-item" id="hiddenAdminBtn" style="opacity: 0.3;">
+                            <span class="settings-icon">🔧</span>
+                            <span class="settings-label">管理</span>
                         </div>
                     </div>
                 </div>
@@ -249,11 +230,19 @@
             });
         }
         
-        document.getElementById('cloudSettingsBtn').addEventListener('click', () => CloudSync.openSettingsModal());
-        document.getElementById('syncToCloudBtn').addEventListener('click', () => CloudSync.sync());
         document.getElementById('syncFromCloudBtn').addEventListener('click', () => CloudSync.syncFromCloud());
         
-        document.getElementById('adminPanelBtn').addEventListener('click', () => AdminSystem.openAdminPanel());
+        document.getElementById('notionBackupBtn').addEventListener('click', () => {
+            const notionUrl = 'https://www.notion.so/30ad9616662180568b20d6d607924c76?v=30ad96166621802abfa8000cc45c28e6&source=copy_link';
+            document.getElementById('notionIframe').src = notionUrl;
+            App.switchPage('notion');
+        });
+        
+        document.getElementById('notionBackBtn').addEventListener('click', () => App.switchPage('profile'));
+        
+        document.getElementById('hiddenAdminBtn').addEventListener('click', () => {
+            AdminSystem.openAdminPanel();
+        });
         
         document.getElementById('userLoginBtn').addEventListener('click', () => {
             if (ReviewSystem.isLoggedIn()) {

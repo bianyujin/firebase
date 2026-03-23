@@ -122,6 +122,7 @@ const AdminSystem = {
                                 <button class="btn btn-secondary" onclick="App.addNewGame()">添加游戏</button>
                                 <button class="btn btn-secondary" onclick="AdminSystem.exportAllData()">导出所有数据</button>
                                 <button class="btn btn-secondary" onclick="AdminSystem.openImportModal()">批量导入</button>
+                                <button class="btn btn-primary" onclick="CloudSync.syncNotionToFirebase()">从Notion导入到Firebase</button>
                             </div>
                         </div>
 
@@ -139,7 +140,18 @@ const AdminSystem = {
                                 <input type="password" id="newAdminPassword" class="form-input" 
                                        value="${this.config.adminPassword}" placeholder="设置管理员密码">
                             </div>
-                            <button class="btn btn-primary" onclick="AdminSystem.saveAdminPassword()">保存设置</button>
+                            <h5>Notion 配置 (用于导入到 Firebase)</h5>
+                            <div class="form-group">
+                                <label class="form-label">Notion Integration Token</label>
+                                <input type="password" id="notionToken" class="form-input" 
+                                       value="${CloudSync.config.notionToken}" placeholder="secret_xxxxxxxxxxxxxxxx">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Notion 数据库 ID</label>
+                                <input type="text" id="notionDatabaseId" class="form-input" 
+                                       value="${CloudSync.config.notionDatabaseId}" placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+                            </div>
+                            <button class="btn btn-primary" onclick="AdminSystem.saveAdminSettings()">保存设置</button>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -167,6 +179,15 @@ const AdminSystem = {
     saveAdminPassword() {
         this.config.adminPassword = document.getElementById('newAdminPassword').value;
         this.saveConfig();
+        App.showToast('设置已保存');
+    },
+
+    saveAdminSettings() {
+        this.config.adminPassword = document.getElementById('newAdminPassword').value;
+        CloudSync.config.notionToken = document.getElementById('notionToken').value;
+        CloudSync.config.notionDatabaseId = document.getElementById('notionDatabaseId').value;
+        this.saveConfig();
+        CloudSync.saveConfig();
         App.showToast('设置已保存');
     },
 

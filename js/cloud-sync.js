@@ -2,8 +2,10 @@ const CloudSync = {
     config: {
         notionToken: '',
         notionDatabaseId: '',
-        firebaseConfig: null,
-        syncProvider: 'local',
+        firebaseConfig: {
+            databaseURL: 'https://galgame-a5758-default-rtdb.asia-southeast1.firebasedatabase.app'
+        },
+        syncProvider: 'firebase',
         autoSync: false,
         lastSync: null,
         useCorsProxy: true,
@@ -779,6 +781,104 @@ const CloudSync = {
             </div>
         `;
         document.body.insertAdjacentHTML('beforeend', helpHtml);
+    },
+
+    async syncNotionToFirebase() {
+        if (!this.config.notionToken || !this.config.notionDatabaseId) {
+            App.showToast('请先配置Notion');
+            return;
+        }
+
+        App.showToast('正在从Notion获取数据...');
+
+        try {
+            let allResults = [];
+            let hasMore = true;
+            let startCursor = undefined;
+
+            const baseUrl = `https://api.notion.com/v1/databases/${this.config.notionDatabaseId}/query`;
+            const url = this.getProxyUrl(baseUrl);
+
+            while (hasMore) {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${this.config.notionToken}`,
+                        'Notion-Version': '2022-06-28',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        page_size: 100,
+                        start_cursor: startCursor
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.results) {
+                    allResults = allResults.concat(data.results);
+                }
+                
+                hasMore = data.has_more;
+                startCursor = data.next_cursor;
+            }
+
+            if (allResults.length > 0) {
+                const games = allResults.map(page => {
+                    const props = page.properties;
+                    const game = {
+                        id: page.id.replace(/-/g, ''),
+                        title: this.getPropertyValue(props, ['标题', '游戏名', 'Name', 'Title'], 'title') || '未命名',
+                        icon: this.getPropertyValue(props, ['图标', 'Icon'], 'text') || '🎮',
+                        category: this.getPropertyValue(props, ['类型', '分类', 'Category', 'Type'], 'select') || '其他',
+                        rating: this.getPropertyValue(props, ['评分', 'Rating', 'Score'], 'number') || 0,
+                        downloads: this.getPropertyValue(props, ['下载量', 'Downloads'], 'text') || '-',
+                        description: this.getPropertyValue(props, ['介绍', '描述', 'Description', 'Desc'], 'text') || '',
+                        developer: this.getPropertyValue(props, ['社团', '开发商', 'Developer', 'Studio'], 'text') || '',
+                        review: this.getPropertyValue(props, ['评价', 'Review'], 'text') || '',
+                        tags: this.getPropertyValue(props, ['标签', 'Tags'], 'multi_select') || [],
+                        cover: this.getPropertyValue(props, ['封面', 'Cover'], 'text') || '',
+                        updateDate: new Date(page.last_edited_time),
+                        isFavorite: false
+                    };
+
+                    Object.keys(props).forEach(key => {
+                        if (!['标题', '游戏名', 'Name', 'Title', '图标', 'Icon', '类型', '分类', 'Category', 'Type', '评分', 'Rating', 'Score', '下载量', 'Downloads', '介绍', '描述', 'Description', 'Desc', '社团', '开发商', 'Developer', 'Studio', '评价', 'Review', '标签', 'Tags', '封面', 'Cover'].includes(key)) {
+                            game[key] = this.getPropertyValue(props, [key], 'text') || '';
+                        }
+                    });
+
+                    return game;
+                });
+
+                App.showToast('正在同步到Firebase...');
+
+                const response = await fetch(`${this.config.firebaseConfig.databaseURL}/games.json`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(games)
+                });
+
+                if (response.ok) {
+                    this.config.lastSync = Date.now();
+                    this.saveConfig();
+                    
+                    const mappedGames = games.map(g => this.mapGameFields(g));
+                    this.normalizeAllFields(mappedGames);
+                    App.games = mappedGames;
+                    App.nextId = mappedGames.length + 1;
+                    App.saveData();
+                    App.render();
+                    
+                    App.showToast(`✅ 成功！从Notion导入 ${games.length} 条数据到Firebase并同步到本地`);
+                } else {
+                    throw new Error('同步到Firebase失败');
+                }
+            }
+        } catch (e) {
+            console.error('Notion到Firebase同步失败:', e);
+            App.showToast('❌ 同步失败：' + e.message);
+        }
     }
 };
 
