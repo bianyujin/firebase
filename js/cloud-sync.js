@@ -2,14 +2,25 @@ const CloudSync = {
     config: {
         notionToken: '',
         notionDatabaseId: '',
+        notionCsvUrl: '',
+        notionEmbedUrl: '',
         firebaseConfig: {
             databaseURL: 'https://galgame-a5758-default-rtdb.asia-southeast1.firebasedatabase.app'
         },
-        syncProvider: 'firebase',
+        configSource: 'github',
+        githubConfigUrl: '',
+        syncProvider: 'github',
         autoSync: false,
         lastSync: null,
         useCorsProxy: true,
-        corsProxyUrl: 'https://corsproxy.io/?'
+        corsProxyUrl: 'https://corsproxy.io/?',
+        appVersion: '2.0.0',
+        latestVersion: null,
+        updateUrl: null,
+        cloudAdminPassword: null,
+        gamesDataUrl: null,
+        gamesDataVersion: null,
+        localDataVersion: null
     },
 
     db: null,
@@ -25,6 +36,12 @@ const CloudSync = {
         if (saved) {
             this.config = { ...this.config, ...JSON.parse(saved) };
         }
+        this.config.localDataVersion = localStorage.getItem('gamehub_local_data_version') || null;
+    },
+
+    saveLocalDataVersion(version) {
+        this.config.localDataVersion = version;
+        localStorage.setItem('gamehub_local_data_version', version);
     },
 
     saveConfig() {
@@ -314,8 +331,8 @@ const CloudSync = {
             description: game.description || '',
             updateDate: game.updateDate ? new Date(game.updateDate) : new Date(),
             isFavorite: game.isFavorite || false,
-            _rawFields: game._rawFields ? [...game._rawFields] : [],
-            _rawData: game._rawData ? {...game._rawData} : {}
+            _rawFields: [],
+            _rawData: {}
         };
 
         if (game.title) {
@@ -326,31 +343,75 @@ const CloudSync = {
             mapped.privateData = game.privateData;
         }
 
-        Object.keys(game).forEach(key => {
-            if (['id', 'icon', 'category', 'rating', 'downloads', 'description', 'updateDate', 'isFavorite', '_rawFields', '_rawData', 'title', 'privateData'].includes(key)) {
-                return;
-            }
-            
-            const mappedKey = fieldMap[key];
-            
-            if (mappedKey === 'title' && !mapped.title) {
-                mapped.title = game[key];
-            } else if (mappedKey === 'category' && !mapped.category) {
-                mapped.category = game[key];
-            } else if (mappedKey === 'rating' && !mapped.rating) {
-                const val = parseFloat(game[key]);
-                mapped.rating = isNaN(val) ? 0 : val;
-            } else if (mappedKey === 'icon' && mapped.icon === '🎮') {
-                mapped.icon = game[key];
-            } else if (mappedKey === 'downloads' && mapped.downloads === '-') {
-                mapped.downloads = game[key];
-            } else if (mappedKey === 'description' && !mapped.description) {
-                mapped.description = game[key];
-            } else if (!mapped._rawFields.includes(key)) {
-                mapped._rawFields.push(key);
-                mapped._rawData[key] = game[key];
+        const fieldNameMap = game._fieldMap || {};
+
+        const rawData = game._rawData || {};
+        Object.keys(rawData).forEach(sanitizedKey => {
+            const originalKey = fieldNameMap[sanitizedKey] || sanitizedKey;
+            mapped._rawData[originalKey] = rawData[sanitizedKey];
+            if (!mapped._rawFields.includes(originalKey)) {
+                mapped._rawFields.push(originalKey);
             }
         });
+
+        const rawFieldsFromGame = game._rawFields || [];
+        rawFieldsFromGame.forEach(sanitizedKey => {
+            const originalKey = fieldNameMap[sanitizedKey] || sanitizedKey;
+            if (!mapped._rawFields.includes(originalKey)) {
+                mapped._rawFields.push(originalKey);
+            }
+        });
+
+        const allData = {...game, ...mapped._rawData};
+        const allKeys = Object.keys(allData);
+
+        if (!mapped.title) {
+            for (const key of allKeys) {
+                const keyClean = key.toLowerCase().replace(/[\[\]（）\(\)\s]/g, '');
+                if (keyClean.includes('游戏名') || keyClean.includes('游戏名称') || 
+                    keyClean.includes('名称') || keyClean.includes('标题') || 
+                    keyClean.includes('title')) {
+                    if (allData[key]) {
+                        mapped.title = allData[key];
+                        break;
+                    }
+                }
+            }
+        }
+
+        for (const key of allKeys) {
+            if (['id', 'icon', 'category', 'rating', 'downloads', 'description', 'updateDate', 'isFavorite', '_rawFields', '_rawData', 'title', 'privateData', '_fieldMap'].includes(key)) {
+                continue;
+            }
+            
+            let mappedKey = fieldMap[key];
+            
+            if (!mappedKey) {
+                const keyClean = key.toLowerCase().replace(/[\[\]（）\(\)\s]/g, '');
+                for (const originalKey in fieldMap) {
+                    const originalClean = originalKey.toLowerCase().replace(/[\[\]（）\(\)\s]/g, '');
+                    if (keyClean.includes(originalClean) || originalClean.includes(keyClean)) {
+                        mappedKey = fieldMap[originalKey];
+                        break;
+                    }
+                }
+            }
+            
+            if (mappedKey === 'title' && !mapped.title) {
+                mapped.title = allData[key];
+            } else if (mappedKey === 'category' && !mapped.category) {
+                mapped.category = allData[key];
+            } else if (mappedKey === 'rating' && !mapped.rating) {
+                const val = parseFloat(allData[key]);
+                mapped.rating = isNaN(val) ? 0 : val;
+            } else if (mappedKey === 'icon' && mapped.icon === '🎮') {
+                mapped.icon = allData[key];
+            } else if (mappedKey === 'downloads' && mapped.downloads === '-') {
+                mapped.downloads = allData[key];
+            } else if (mappedKey === 'description' && !mapped.description) {
+                mapped.description = allData[key];
+            }
+        }
 
         if (!mapped.title) {
             mapped.title = '未命名';
@@ -700,31 +761,199 @@ const CloudSync = {
         }
     },
 
-    async syncFromFirebase() {
+    async syncFromCloud() {
         App.showToast('同步中...');
 
         try {
-            const response = await fetch(`${this.config.firebaseConfig.databaseURL}/games.json`);
-            const data = await response.json();
-            
-            if (data) {
-                const rawGames = Object.values(data);
-                const games = rawGames.map(g => this.mapGameFields(g));
-                this.normalizeAllFields(games);
-                App.games = games;
-                App.nextId = games.length + 1;
-                App.saveData();
-                App.render();
-                
-                this.config.lastSync = Date.now();
-                this.saveConfig();
-                App.showToast('同步成功');
+            await this.loadCloudConfig();
+
+            if (this.config.notionCsvUrl) {
+                await this.syncFromNotionCsv();
+            } else if (this.config.gamesDataUrl) {
+                await this.syncFromGamesJson();
             } else {
-                App.showToast('同步失败');
+                App.showToast('数据地址未配置');
             }
         } catch (e) {
-            App.showToast('同步失败');
+            console.error('同步失败:', e);
+            App.showToast('同步失败: ' + e.message);
         }
+    },
+
+    async syncFromGamesJson() {
+        if (this.config.gamesDataVersion && 
+            this.config.localDataVersion &&
+            this.config.gamesDataVersion === this.config.localDataVersion) {
+            App.showToast('数据已是最新');
+            return;
+        }
+
+        const response = await fetch(this.config.gamesDataUrl);
+        
+        if (!response.ok) {
+            throw new Error('下载失败');
+        }
+        
+        const data = await response.json();
+        
+        if (data) {
+            let games;
+            
+            if (Array.isArray(data)) {
+                games = data.map(g => this.mapGameFields(g));
+            } else {
+                const rawGames = Object.values(data);
+                games = rawGames.map(g => this.mapGameFields(g));
+            }
+            
+            this.normalizeAllFields(games);
+            App.games = games;
+            App.nextId = games.length + 1;
+            App.saveData();
+            App.render();
+            
+            this.saveLocalDataVersion(this.config.gamesDataVersion);
+            
+            this.config.lastSync = Date.now();
+            this.saveConfig();
+            App.showToast('同步成功');
+        }
+    },
+
+    async syncFromNotionCsv() {
+        let url = this.config.notionCsvUrl;
+        
+        if (this.config.useCorsProxy && this.config.corsProxyUrl) {
+            url = this.config.corsProxyUrl + encodeURIComponent(url);
+        }
+
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+            throw new Error('从 Notion 下载失败');
+        }
+        
+        let csvText;
+        const contentType = response.headers.get('Content-Type') || '';
+        
+        if (contentType.includes('zip') || url.includes('.zip')) {
+            csvText = await this.extractCsvFromZip(response);
+        } else {
+            csvText = await response.text();
+        }
+        
+        const data = this.parseCsv(csvText);
+        
+        if (data && data.length > 0) {
+            const games = data.map(g => this.mapGameFields(g));
+            this.normalizeAllFields(games);
+            App.games = games;
+            App.nextId = games.length + 1;
+            App.saveData();
+            App.render();
+            
+            this.config.lastSync = Date.now();
+            this.saveConfig();
+            App.showToast('同步成功');
+        } else {
+            throw new Error('数据为空');
+        }
+    },
+
+    async extractCsvFromZip(response) {
+        try {
+            const JSZip = (window.JSZip || window.zip);
+            if (!JSZip) {
+                throw new Error('需要JSZip库来解压ZIP文件');
+            }
+            
+            const arrayBuffer = await response.arrayBuffer();
+            const zip = await JSZip.loadAsync(arrayBuffer);
+            
+            let csvFile = null;
+            zip.forEach((relativePath, file) => {
+                if (file.name.endsWith('.csv')) {
+                    csvFile = file;
+                }
+            });
+            
+            if (!csvFile) {
+                throw new Error('ZIP中找不到CSV文件');
+            }
+            
+            return await csvFile.async('text');
+        } catch (e) {
+            console.error('解压ZIP失败:', e);
+            throw new Error('解压失败，请直接使用CSV链接');
+        }
+    },
+
+    parseCsv(csv) {
+        const lines = [];
+        let current = '';
+        let inQuotes = false;
+        
+        for (let i = 0; i < csv.length; i++) {
+            const char = csv[i];
+            if (char === '"') {
+                inQuotes = !inQuotes;
+            }
+            if ((char === '\n' || char === '\r') && !inQuotes) {
+                if (current.trim()) {
+                    lines.push(current);
+                }
+                current = '';
+                if (char === '\r' && csv[i + 1] === '\n') {
+                    i++;
+                }
+            } else {
+                current += char;
+            }
+        }
+        if (current.trim()) {
+            lines.push(current);
+        }
+        
+        if (lines.length < 2) return [];
+        
+        const headers = this.parseCsvLine(lines[0]);
+        const data = [];
+        
+        for (let i = 1; i < lines.length; i++) {
+            const values = this.parseCsvLine(lines[i]);
+            const row = {};
+            headers.forEach((header, index) => {
+                row[header] = values[index] || '';
+            });
+            data.push(row);
+        }
+        
+        return data;
+    },
+
+    parseCsvLine(line) {
+        const result = [];
+        let current = '';
+        let inQuotes = false;
+        
+        for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            if (char === '"') {
+                if (inQuotes && line[i + 1] === '"') {
+                    current += '"';
+                    i++;
+                } else {
+                    inQuotes = !inQuotes;
+                }
+            } else if (char === ',' && !inQuotes) {
+                result.push(current.trim());
+                current = '';
+            } else {
+                current += char;
+            }
+        }
+        result.push(current.trim());
+        return result;
     },
 
     showFirebaseHelp() {
@@ -879,6 +1108,78 @@ const CloudSync = {
             console.error('Notion到Firebase同步失败:', e);
             App.showToast('❌ 同步失败：' + e.message);
         }
+    },
+
+    async loadCloudConfig(forceRefresh = false) {
+        try {
+            let url;
+            
+            if (this.config.configSource === 'github' && this.config.githubConfigUrl) {
+                url = this.config.githubConfigUrl;
+            } else if (this.config.firebaseConfig?.databaseURL) {
+                url = `${this.config.firebaseConfig.databaseURL}/config.json`;
+            } else {
+                return false;
+            }
+            
+            const headers = {};
+            
+            if (!forceRefresh && this.config.lastConfigEtag) {
+                headers['If-None-Match'] = this.config.lastConfigEtag;
+            }
+
+            const response = await fetch(url, { headers });
+            
+            if (response.status === 304 && !forceRefresh) {
+                return true;
+            }
+            
+            const etag = response.headers.get('ETag');
+            if (etag) {
+                this.config.lastConfigEtag = etag;
+            }
+            
+            if (response.ok) {
+                const config = await response.json();
+                this.config.latestVersion = config?.latest_version || null;
+                this.config.updateUrl = config?.update_url || null;
+                this.config.cloudAdminPassword = config?.admin_password || null;
+                this.config.gamesDataUrl = config?.games_data_url || null;
+                this.config.gamesDataVersion = config?.games_data_version || null;
+                this.config.notionCsvUrl = config?.notion_csv_url || null;
+                this.config.notionEmbedUrl = config?.notion_embed_url || null;
+                this.saveConfig();
+                return true;
+            }
+        } catch (e) {
+            console.error('读取云端配置失败:', e);
+        }
+        return false;
+    },
+
+    async checkVersionUpdate() {
+        await this.loadCloudConfig();
+        
+        if (this.config.latestVersion && this.config.appVersion !== this.config.latestVersion) {
+            return {
+                needsUpdate: true,
+                latestVersion: this.config.latestVersion,
+                updateUrl: this.config.updateUrl
+            };
+        }
+        
+        return { needsUpdate: false };
+    },
+
+    async verifyAdminPassword(password) {
+        await this.loadCloudConfig(true);
+        
+        if (this.config.cloudAdminPassword) {
+            return password === this.config.cloudAdminPassword;
+        }
+        
+        const defaultPassword = '520hd123';
+        return password === defaultPassword;
     }
 };
 

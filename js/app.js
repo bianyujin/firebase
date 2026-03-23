@@ -19,8 +19,6 @@ const App = {
     tableState: {
         sortColumn: null,
         sortDirection: 'asc',
-        currentPage: 1,
-        pageSize: 5,
         searchQuery: '',
         selectedItems: [],
         filterCategories: new Set(),
@@ -32,10 +30,53 @@ const App = {
     nextId: 51,
 
     init() {
-        this.isAdmin = localStorage.getItem('gamehub_is_admin') === 'true';
-        this.loadData();
-        this.bindEvents();
-        this.render();
+        if (typeof AdminSystem !== 'undefined') {
+            this.isAdmin = AdminSystem.config.isAdmin;
+        } else {
+            this.isAdmin = localStorage.getItem('gamehub_is_admin') === 'true';
+        }
+        this.checkVersionAndInit();
+    },
+
+    async checkVersionAndInit() {
+        const result = await CloudSync.checkVersionUpdate();
+        
+        if (result.needsUpdate) {
+            this.showUpdateModal(result.latestVersion, result.updateUrl);
+        } else {
+            this.loadData();
+            this.bindEvents();
+            this.render();
+        }
+    },
+
+    showUpdateModal(latestVersion, updateUrl) {
+        const modalHtml = `
+            <div id="updateModal" class="modal" style="display: flex;">
+                <div class="modal-content" style="max-width: 400px;">
+                    <div class="modal-header">
+                        <h3 class="modal-title">🔄 发现新版本</h3>
+                    </div>
+                    <div class="modal-body">
+                        <p style="margin-bottom: 16px;">当前版本: <strong>2.0.0</strong></p>
+                        <p style="margin-bottom: 16px;">最新版本: <strong style="color: #10b981;">${latestVersion}</strong></p>
+                        <p style="color: #f59e0b; font-size: 14px;">⚠️ 必须更新才能继续使用</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-primary" onclick="App.openUpdateUrl('${updateUrl}')">立即更新</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    },
+
+    openUpdateUrl(url) {
+        if (url) {
+            window.location.href = url;
+        } else {
+            this.showToast('请联系管理员获取更新地址');
+        }
     },
 
     loadData() {
@@ -282,33 +323,31 @@ const App = {
     renderTable() {
         const games = this.getFilteredGames();
         const total = games.length;
-        const start = (this.tableState.currentPage - 1) * this.tableState.pageSize;
-        const end = start + this.tableState.pageSize;
-        const pageGames = games.slice(start, end);
-        const totalPages = Math.ceil(total / this.tableState.pageSize);
 
-        const tbody = document.getElementById('tableBody');
-        tbody.innerHTML = pageGames.map((game, index) => {
+        const container = document.getElementById('tableBody');
+        container.innerHTML = games.map(game => {
             const gameIndex = this.games.indexOf(game);
+            const coverImage = game.cover || game._rawData?.封面 || game._rawData?.封面图 || '';
+            const tags = [game.category, ...(game._rawData?.标签 || '').split(/[,，]/).filter(t => t.trim())].slice(0, 3);
+            
             return `
-            <tr data-index="${gameIndex}" onclick="App.editGameByIndex(${gameIndex})" style="cursor: pointer;">
-                <td>
-                    <div class="table-icon">${game.icon || '🎮'}</div>
-                </td>
-                <td>${game.title || '未命名'}</td>
-                <td>${game.category || '其他'}</td>
-                <td>
-                    <div class="table-actions">
-                        <button class="table-action-btn" onclick="event.stopPropagation(); App.editGameByIndex(${gameIndex})">详情</button>
+            <div class="home-game-card" onclick="App.editGameByIndex(${gameIndex})">
+                <div class="home-game-cover">
+                    ${coverImage ? `<img src="${coverImage}" alt="${game.title}" onerror="this.parentElement.innerHTML='<span class=\\'home-game-icon\\'>${game.icon || '🎮'}</span>'">` : `<span class="home-game-icon">${game.icon || '🎮'}</span>`}
+                </div>
+                <div class="home-game-content">
+                    <div class="home-game-title">${game.title || '未命名'}</div>
+                    <div class="home-game-platform">${game._rawData?.平台 || 'PC端'}</div>
+                    <div class="home-game-tags">
+                        ${tags.map(tag => `<span class="home-game-tag">${tag}</span>`).join('')}
+                        ${game._rawFields && game._rawFields.length > 3 ? `<span class="home-game-tag">+${game._rawFields.length - 3}</span>` : ''}
                     </div>
-                </td>
-            </tr>
+                </div>
+            </div>
         `}).join('');
 
         document.getElementById('tableInfo').textContent = 
             `共 ${total} 条`;
-
-        this.renderPagination(totalPages);
         
         this.updateProfileCounts();
     },
@@ -527,9 +566,9 @@ const App = {
                             <div class="form-textarea" style="background: #0f172a; min-height: 40px;">${game.description || '-'}</div>
                         </div>
                         
-                        ${game.privateData && Object.keys(game.privateData).length > 0 ? `
+                        ${this.isAdmin && game.privateData && Object.keys(game.privateData).length > 0 ? `
                             <div style="background: #422006; padding: 12px; border-radius: 8px; margin-bottom: 16px;">
-                                <label class="form-label" style="color: #f59e0b;">🔒 私有数据</label>
+                                <label class="form-label" style="color: #f59e0b;">🔒 私有数据（仅管理员可见）</label>
                                 <div style="font-size: 13px; color: #fcd34d;">
                                     ${Object.keys(game.privateData).map(k => 
                                         `<div style="margin-bottom: 4px;"><strong>${k}:</strong> ${String(game.privateData[k]).substring(0, 100)}</div>`
@@ -1138,7 +1177,6 @@ const App = {
     },
 
     render() {
-        this.renderHomeGames('');
         this.renderTable();
     },
 
@@ -1202,18 +1240,25 @@ const App = {
         }
 
         const container = document.getElementById('homeGames');
-        container.innerHTML = games.map(game => `
-            <div class="game-card" onclick="App.openGame(${game.id})">
-                <div class="game-cover">${game.icon}</div>
-                <div class="game-info">
-                    <div class="game-title">${game.title}</div>
-                    <div class="game-meta">
-                        <span class="game-rating">⭐ ${game.rating}</span>
-                        <span class="game-category">${game.category}</span>
+        container.innerHTML = games.map(game => {
+            const coverImage = game.cover || game._rawData?.封面 || game._rawData?.封面图 || '';
+            const tags = [game.category, ...(game._rawData?.标签 || '').split(/[,，]/).filter(t => t.trim())].slice(0, 3);
+            
+            return `
+            <div class="home-game-card" onclick="App.editGame(${game.id})">
+                <div class="home-game-cover">
+                    ${coverImage ? `<img src="${coverImage}" alt="${game.title}" onerror="this.parentElement.innerHTML='<span class=\\'home-game-icon\\'>${game.icon || '🎮'}</span>'">` : `<span class="home-game-icon">${game.icon || '🎮'}</span>`}
+                </div>
+                <div class="home-game-content">
+                    <div class="home-game-title">${game.title || '未命名'}</div>
+                    <div class="home-game-platform">${game._rawData?.平台 || 'PC端'}</div>
+                    <div class="home-game-tags">
+                        ${tags.map(tag => `<span class="home-game-tag">${tag}</span>`).join('')}
+                        ${game._rawFields && game._rawFields.length > 3 ? `<span class="home-game-tag">+${game._rawFields.length - 3}</span>` : ''}
                     </div>
                 </div>
             </div>
-        `).join('');
+        `}).join('');
     },
 
     filterHomeCategory(category) {

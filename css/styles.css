@@ -361,13 +361,34 @@ body {
 
 .table-toolbar {
     display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
+    align-items: center;
+    gap: 8px;
     margin-bottom: 16px;
     background: var(--surface);
     padding: 12px;
     border-radius: var(--radius);
     border: 1px solid var(--border);
+}
+
+.table-search-box {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface-light);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    flex: 1;
+    min-width: 0;
+}
+
+.table-search-box input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: var(--text-primary);
+    font-size: 14px;
+    outline: none;
+    min-width: 0;
 }
 
 .toolbar-left {
@@ -1723,4 +1744,104 @@ input:checked + .slider:before {
     text-align: center;
     color: var(--text-muted);
     padding: 40px 20px;
+}
+
+.games-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding-bottom: 20px;
+}
+
+.home-game-card {
+    display: flex;
+    gap: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.home-game-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--primary);
+}
+
+.home-game-cover {
+    width: 120px;
+    height: 150px;
+    border-radius: 12px;
+    background: var(--gradient-primary);
+    overflow: hidden;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.home-game-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.home-game-icon {
+    font-size: 48px;
+}
+
+.home-game-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.home-game-title {
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.home-game-platform {
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+.home-game-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.home-game-tag {
+    font-size: 12px;
+    padding: 4px 10px;
+    background: var(--surface-light);
+    border-radius: 20px;
+    color: var(--text-secondary);
+}
+
+@media (max-width: 480px) {
+    .home-game-cover {
+        width: 100px;
+        height: 130px;
+    }
+    
+    .home-game-title {
+        font-size: 15px;
+    }
+    
+    .home-game-tag {
+        font-size: 11px;
+        padding: 3px 8px;
+    }
 }

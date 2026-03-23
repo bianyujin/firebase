@@ -27,6 +27,9 @@ const AdminSystem = {
 
     checkAdminStatus() {
         this.config.isAdmin = localStorage.getItem('gamehub_is_admin') === 'true';
+        if (typeof App !== 'undefined') {
+            App.isAdmin = this.config.isAdmin;
+        }
     },
 
     login(password) {
@@ -75,9 +78,13 @@ const AdminSystem = {
         if (modal) modal.remove();
     },
 
-    doLogin() {
+    async doLogin() {
         const password = document.getElementById('adminPassword').value;
-        if (this.login(password)) {
+        const isValid = await CloudSync.verifyAdminPassword(password);
+        if (isValid) {
+            this.config.isAdmin = true;
+            localStorage.setItem('gamehub_is_admin', 'true');
+            App.isAdmin = true;
             this.closeAdminLogin();
             App.showToast('✅ 管理员登录成功');
             location.reload();
@@ -136,11 +143,16 @@ const AdminSystem = {
                         <div class="admin-section">
                             <h4>设置</h4>
                             <div class="form-group">
+                                <label class="form-label">GitHub Config URL (config.json 下载地址)</label>
+                                <input type="text" id="githubConfigUrl" class="form-input" 
+                                       value="${CloudSync.config.githubConfigUrl}" placeholder="https://github.com/.../config.json">
+                            </div>
+                            <div class="form-group">
                                 <label class="form-label">管理员密码</label>
                                 <input type="password" id="newAdminPassword" class="form-input" 
                                        value="${this.config.adminPassword}" placeholder="设置管理员密码">
                             </div>
-                            <h5>Notion 配置 (用于导入到 Firebase)</h5>
+                            <h5>Notion 配置 (备用)</h5>
                             <div class="form-group">
                                 <label class="form-label">Notion Integration Token</label>
                                 <input type="password" id="notionToken" class="form-input" 
@@ -184,6 +196,7 @@ const AdminSystem = {
 
     saveAdminSettings() {
         this.config.adminPassword = document.getElementById('newAdminPassword').value;
+        CloudSync.config.githubConfigUrl = document.getElementById('githubConfigUrl').value;
         CloudSync.config.notionToken = document.getElementById('notionToken').value;
         CloudSync.config.notionDatabaseId = document.getElementById('notionDatabaseId').value;
         this.saveConfig();

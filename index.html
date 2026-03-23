@@ -7,6 +7,7 @@
     <title>GAMEACG - 游戏整合平台</title>
     <link rel="stylesheet" href="css/styles.css">
     <link rel="manifest" href="manifest.json">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
     <div id="app">
@@ -18,9 +19,11 @@
         <main class="app-content" id="mainContent">
             <div id="page-home" class="page active">
                 <div class="section-header">
-                    <h2 class="section-title">所有游戏</h2>
+                    <h2 class="section-title">首页</h2>
                 </div>
-                <div class="games-grid" id="homeGames"></div>
+                <div style="padding: 40px 20px; text-align: center; color: var(--text-muted);">
+                    这里预留放别的内容
+                </div>
             </div>
 
             <div id="page-table" class="page">
@@ -33,23 +36,10 @@
                     <button class="toolbar-btn" id="sortBtn" title="排序">↕️</button>
                 </div>
 
-                <div class="table-container">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th class="th-icon">图标</th>
-                                <th class="th-name sortable" data-sort="title">名称</th>
-                                <th class="th-category sortable" data-sort="category">分类</th>
-                                <th class="th-actions">操作</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tableBody"></tbody>
-                    </table>
-                </div>
+                <div class="games-grid" id="tableBody"></div>
 
                 <div class="table-footer">
                     <div class="footer-info" id="tableInfo"></div>
-                    <div class="pagination" id="pagination"></div>
                 </div>
             </div>
 
@@ -142,17 +132,13 @@
                             <span class="settings-label">备用</span>
                             <span class="settings-arrow">›</span>
                         </div>
-                        <div class="settings-item" id="hiddenAdminBtn" style="opacity: 0.3;">
-                            <span class="settings-icon">🔧</span>
-                            <span class="settings-label">管理</span>
-                        </div>
                     </div>
                 </div>
 
                 <div class="settings-section">
                     <h3 class="settings-title">关于</h3>
                     <div class="settings-list">
-                        <div class="settings-item">
+                        <div class="settings-item" id="versionItem">
                             <span class="settings-icon">ℹ️</span>
                             <span class="settings-label">版本</span>
                             <span class="settings-value">2.0.0</span>
@@ -207,33 +193,13 @@
             
             const notionBackupBtn = document.getElementById('notionBackupBtn');
             if (notionBackupBtn) {
-                notionBackupBtn.addEventListener('click', () => {
-                    const notionUrl = 'https://www.notion.so/30ad9616662180568b20d6d607924c76?v=30ad96166621802abfa8000cc45c28e6&source=copy_link';
+                notionBackupBtn.addEventListener('click', async () => {
+                    await CloudSync.loadCloudConfig();
+                    let notionUrl = CloudSync.config.notionEmbedUrl || 'https://www.notion.so/30ad9616662180568b20d6d607924c76?v=30ad96166621802abfa8000cc45c28e6&source=copy_link';
                     const iframe = document.getElementById('notionIframe');
                     if (iframe) {
                         iframe.src = notionUrl;
-                        
-                        iframe.onload = function() {
-                            try {
-                                const doc = iframe.contentDocument || iframe.contentWindow.document;
-                                const style = doc.createElement('style');
-                                style.textContent = `
-                                    .notion-topbar, .notion-topbar-action, .notion-topbar-share-menu, 
-                                    .notion-topbar-more-menu, .notion-topbar-mobile, .notion-topbar-share-button,
-                                    .notion-topbar-download-button, .notion-topbar-menu-button, .notion-topbar-ad,
-                                    .notion-topbar-divider, .notion-topbar-right, [class*="topbar"],
-                                    [class*="share"], [class*="menu"], [class*="download"], [class*="ad"],
-                                    .notion-help-button, .notion-zoom { display: none !important; visibility: hidden !important; }
-                                    body { padding-top: 0 !important; margin-top: 0 !important; }
-                                    .notion-page-content { padding-top: 20px !important; }
-                                `;
-                                doc.head.appendChild(style);
-                            } catch(e) {
-                                console.log('无法修改iframe样式（跨域限制）');
-                            }
-                        };
                     }
-                    
                     if (App && App.switchPage) {
                         App.switchPage('notion');
                     }
@@ -249,10 +215,27 @@
                 });
             }
             
-            const hiddenAdminBtn = document.getElementById('hiddenAdminBtn');
-            if (hiddenAdminBtn) {
-                hiddenAdminBtn.addEventListener('click', () => {
-                    AdminSystem.openAdminPanel();
+            let versionClickCount = 0;
+            let versionClickTimer = null;
+            const versionItem = document.getElementById('versionItem');
+            if (versionItem) {
+                versionItem.addEventListener('click', () => {
+                    versionClickCount++;
+                    
+                    if (versionClickTimer) {
+                        clearTimeout(versionClickTimer);
+                    }
+                    
+                    versionClickTimer = setTimeout(() => {
+                        if (versionClickCount >= 5) {
+                            if (!AdminSystem.config.isAdmin) {
+                                AdminSystem.openAdminLogin();
+                            } else {
+                                AdminSystem.openAdminPanel();
+                            }
+                        }
+                        versionClickCount = 0;
+                    }, 2000);
                 });
             }
             
