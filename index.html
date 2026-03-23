@@ -187,77 +187,106 @@
     <script src="js/admin.js"></script>
     <script src="js/review.js"></script>
     <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                    .then((registration) => {
-                        console.log('Service Worker 注册成功:', registration);
-                    })
-                    .catch((error) => {
-                        console.log('Service Worker 注册失败:', error);
-                    });
-            });
-        }
-        
-        document.getElementById('syncFromCloudBtn').addEventListener('click', () => CloudSync.syncFromCloud());
-        
-        document.getElementById('notionBackupBtn').addEventListener('click', () => {
-            const notionUrl = 'https://www.notion.so/30ad9616662180568b20d6d607924c76?v=30ad96166621802abfa8000cc45c28e6&source=copy_link';
-            const iframe = document.getElementById('notionIframe');
-            iframe.src = notionUrl;
+        document.addEventListener('DOMContentLoaded', () => {
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', () => {
+                    navigator.serviceWorker.register('./sw.js')
+                        .then((registration) => {
+                            console.log('Service Worker 注册成功:', registration);
+                        })
+                        .catch((error) => {
+                            console.log('Service Worker 注册失败:', error);
+                        });
+                });
+            }
             
-            iframe.onload = function() {
-                try {
-                    const doc = iframe.contentDocument || iframe.contentWindow.document;
-                    const style = doc.createElement('style');
-                    style.textContent = `
-                        .notion-topbar, .notion-topbar-action, .notion-topbar-share-menu, 
-                        .notion-topbar-more-menu, .notion-topbar-mobile, .notion-topbar-share-button,
-                        .notion-topbar-download-button, .notion-topbar-menu-button, .notion-topbar-ad,
-                        .notion-topbar-divider, .notion-topbar-right, [class*="topbar"],
-                        [class*="share"], [class*="menu"], [class*="download"], [class*="ad"],
-                        .notion-help-button, .notion-zoom { display: none !important; visibility: hidden !important; }
-                        body { padding-top: 0 !important; margin-top: 0 !important; }
-                        .notion-page-content { padding-top: 20px !important; }
-                    `;
-                    doc.head.appendChild(style);
-                } catch(e) {
-                    console.log('无法修改iframe样式（跨域限制）');
-                }
-            };
+            const syncFromCloudBtn = document.getElementById('syncFromCloudBtn');
+            if (syncFromCloudBtn) {
+                syncFromCloudBtn.addEventListener('click', () => CloudSync.syncFromCloud());
+            }
             
-            App.switchPage('notion');
-        });
-        
-        document.getElementById('notionBackBtn').addEventListener('click', () => App.switchPage('profile'));
-        
-        document.getElementById('hiddenAdminBtn').addEventListener('click', () => {
-            AdminSystem.openAdminPanel();
-        });
-        
-        document.getElementById('userLoginBtn').addEventListener('click', () => {
+            const notionBackupBtn = document.getElementById('notionBackupBtn');
+            if (notionBackupBtn) {
+                notionBackupBtn.addEventListener('click', () => {
+                    const notionUrl = 'https://www.notion.so/30ad9616662180568b20d6d607924c76?v=30ad96166621802abfa8000cc45c28e6&source=copy_link';
+                    const iframe = document.getElementById('notionIframe');
+                    if (iframe) {
+                        iframe.src = notionUrl;
+                        
+                        iframe.onload = function() {
+                            try {
+                                const doc = iframe.contentDocument || iframe.contentWindow.document;
+                                const style = doc.createElement('style');
+                                style.textContent = `
+                                    .notion-topbar, .notion-topbar-action, .notion-topbar-share-menu, 
+                                    .notion-topbar-more-menu, .notion-topbar-mobile, .notion-topbar-share-button,
+                                    .notion-topbar-download-button, .notion-topbar-menu-button, .notion-topbar-ad,
+                                    .notion-topbar-divider, .notion-topbar-right, [class*="topbar"],
+                                    [class*="share"], [class*="menu"], [class*="download"], [class*="ad"],
+                                    .notion-help-button, .notion-zoom { display: none !important; visibility: hidden !important; }
+                                    body { padding-top: 0 !important; margin-top: 0 !important; }
+                                    .notion-page-content { padding-top: 20px !important; }
+                                `;
+                                doc.head.appendChild(style);
+                            } catch(e) {
+                                console.log('无法修改iframe样式（跨域限制）');
+                            }
+                        };
+                    }
+                    
+                    if (App && App.switchPage) {
+                        App.switchPage('notion');
+                    }
+                });
+            }
+            
+            const notionBackBtn = document.getElementById('notionBackBtn');
+            if (notionBackBtn) {
+                notionBackBtn.addEventListener('click', () => {
+                    if (App && App.switchPage) {
+                        App.switchPage('profile');
+                    }
+                });
+            }
+            
+            const hiddenAdminBtn = document.getElementById('hiddenAdminBtn');
+            if (hiddenAdminBtn) {
+                hiddenAdminBtn.addEventListener('click', () => {
+                    AdminSystem.openAdminPanel();
+                });
+            }
+            
+            const userLoginBtn = document.getElementById('userLoginBtn');
+            if (userLoginBtn) {
+                userLoginBtn.addEventListener('click', () => {
+                    if (ReviewSystem.isLoggedIn()) {
+                        if (confirm('确定要退出登录吗？')) {
+                            localStorage.removeItem('gamehub_current_user');
+                            ReviewSystem.currentUser = null;
+                            App.showToast('已退出登录');
+                            location.reload();
+                        }
+                    } else {
+                        ReviewSystem.openUserLogin();
+                    }
+                });
+            }
+            
             if (ReviewSystem.isLoggedIn()) {
-                if (confirm('确定要退出登录吗？')) {
-                    localStorage.removeItem('gamehub_current_user');
-                    ReviewSystem.currentUser = null;
-                    App.showToast('已退出登录');
-                    location.reload();
-                }
+                const userStatusLabel = document.getElementById('userStatusLabel');
+                const userLoginBtn = document.getElementById('userLoginBtn');
+                if (userStatusLabel) userStatusLabel.textContent = ReviewSystem.currentUser.name;
+                if (userLoginBtn) userLoginBtn.textContent = '退出';
+            }
+            
+            if (AdminSystem.config.isAdmin) {
+                const addGameFab = document.getElementById('addGameFab');
+                if (addGameFab) addGameFab.style.display = 'flex';
             } else {
-                ReviewSystem.openUserLogin();
+                const addGameFab = document.getElementById('addGameFab');
+                if (addGameFab) addGameFab.style.display = 'none';
             }
         });
-        
-        if (ReviewSystem.isLoggedIn()) {
-            document.getElementById('userStatusLabel').textContent = ReviewSystem.currentUser.name;
-            document.getElementById('userLoginBtn').textContent = '退出';
-        }
-        
-        if (AdminSystem.config.isAdmin) {
-            document.getElementById('addGameFab').style.display = 'flex';
-        } else {
-            document.getElementById('addGameFab').style.display = 'none';
-        }
     </script>
 </body>
 </html>
