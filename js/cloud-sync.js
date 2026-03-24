@@ -850,10 +850,6 @@ const CloudSync = {
             throw new Error('games_data_url未配置，请检查config.json');
         }
         
-        if (url.includes('github.com') && url.includes('releases/download')) {
-            url = url.replace('github.com/bianyujin/gameapp/releases/download/', 'cdn.jsdelivr.net/gh/bianyujin/gameapp@');
-        }
-        
         console.log('请求URL:', url);
         const response = await fetch(url);
         console.log('响应状态:', response.status);
