@@ -19,11 +19,15 @@
         <main class="app-content" id="mainContent">
             <div id="page-home" class="page active">
                 <div class="section-header">
-                    <h2 class="section-title">首页</h2>
+                    <h2 class="section-title">游戏列表</h2>
                 </div>
-                <div style="padding: 40px 20px; text-align: center; color: var(--text-muted);">
-                    这里预留放别的内容
+                <div class="search-section">
+                    <div class="search-box">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" id="homeSearch" placeholder="搜索游戏...">
+                    </div>
                 </div>
+                <div class="games-grid" id="homeGames"></div>
             </div>
 
             <div id="page-table" class="page">

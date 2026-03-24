@@ -20,7 +20,7 @@ const App = {
         sortColumn: 'updateDate',
         sortDirection: 'desc',
         currentPage: 1,
-        pageSize: 5,
+        pageSize: 6,
         searchQuery: '',
         selectedItems: [],
         filterCategories: new Set(),
@@ -294,25 +294,20 @@ const App = {
         const pageGames = games.slice(start, end);
         const totalPages = Math.ceil(total / this.tableState.pageSize);
 
-        const tbody = document.getElementById('tableBody');
-        tbody.innerHTML = pageGames.map((game, index) => {
+        const container = document.getElementById('tableBody');
+        container.innerHTML = pageGames.map((game, index) => {
             const gameIndex = this.games.indexOf(game);
             return `
-            <tr data-index="${gameIndex}" onclick="App.editGameByIndex(${gameIndex})" style="cursor: pointer;">
-                <td>
-                    <div class="table-icon">${game.icon || '🎮'}</div>
-                </td>
-                <td>${game.title || '未命名'}</td>
-                <td>${game.category || '其他'}</td>
-                <td>
-                    <span class="table-rating">⭐ ${game.rating || 0}</span>
-                </td>
-                <td>
-                    <div class="table-actions">
-                        <button class="table-action-btn" onclick="event.stopPropagation(); App.editGameByIndex(${gameIndex})">详情</button>
+            <div class="game-card" onclick="App.editGameByIndex(${gameIndex})">
+                <div class="game-cover">${game.icon || '🎮'}</div>
+                <div class="game-info">
+                    <div class="game-title">${game.title || '未命名'}</div>
+                    <div class="game-meta">
+                        <span class="game-rating">⭐ ${game.rating || 0}</span>
+                        <span class="game-category">${game.category || '其他'}</span>
                     </div>
-                </td>
-            </tr>
+                </div>
+            </div>
         `}).join('');
 
         document.getElementById('tableInfo').textContent = 
@@ -1220,6 +1215,7 @@ const App = {
                 <div class="game-info">
                     <div class="game-title">${game.title}</div>
                     <div class="game-meta">
+                        <span class="game-rating">⭐ ${game.rating || 0}</span>
                         <span class="game-category">${game.category}</span>
                     </div>
                 </div>
