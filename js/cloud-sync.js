@@ -768,49 +768,67 @@ const CloudSync = {
         App.showToast('同步中...');
         console.log('=== syncFromCloud开始 ===');
         
+        const firebaseUrl = '';
+        
+        await this.loadCloudConfig();
+        
+        if (!this.config.gamesDataUrl) {
+            throw new Error('请先在config.json中配置games_data_url');
+        }
+        
+        this.config.localDataVersion = null;
+        console.log('GitHub CDN URL:', this.config.gamesDataUrl);
+        console.log('Firebase URL (备用):', firebaseUrl);
+
         try {
-            let gamesLoaded = false;
+            let success = false;
+            let error = null;
             
-            console.log('1. 尝试从本地 games.json 加载...');
             try {
-                const localResponse = await fetch('games.json');
-                if (localResponse.ok) {
-                    const localData = await localResponse.json();
-                    console.log('本地 games.json 加载成功');
-                    let games;
-                    if (Array.isArray(localData)) {
-                        games = localData.map(g => this.mapGameFields(g));
-                    } else {
-                        const rawGames = Object.values(localData);
-                        games = rawGames.map(g => this.mapGameFields(g));
-                    }
-                    this.normalizeAllFields(games);
-                    App.games = games;
-                    App.nextId = games.length + 1;
-                    App.saveData();
-                    App.render();
-                    gamesLoaded = true;
-                    console.log('本地数据同步成功!');
-                }
-            } catch (localErr) {
-                console.log('本地加载失败:', localErr);
-            }
-            
-            if (!gamesLoaded) {
-                console.log('2. 尝试从远程加载...');
-                await this.loadCloudConfig();
+                console.log('尝试从 GitHub CDN 同步...');
+                await this.syncFromGamesJson();
+                success = true;
+                console.log('GitHub CDN 同步成功!');
+            } catch (e) {
+                console.error('GitHub CDN 同步失败:', e);
+                error = e.message;
                 
-                if (this.config.gamesDataUrl) {
-                    await this.syncFromGamesJson();
-                    gamesLoaded = true;
-                } else {
-                    throw new Error('没有可用的数据源');
+                try {
+                    if (firebaseUrl) {
+                        console.log('GitHub CDN 失败，尝试 Firebase (备用)...');
+                        const originalUrl = this.config.gamesDataUrl;
+                        this.config.gamesDataUrl = firebaseUrl;
+                        await this.syncFromGamesJson();
+                        success = true;
+                        console.log('Firebase 同步成功!');
+                    } else {
+                        throw e;
+                    }
+                } catch (e2) {
+                    console.error('Firebase 同步失败:', e2);
+                    error = e2.message;
+                    
+                    const cachedData = localStorage.getItem('gamehub_cached_games');
+                    if (cachedData) {
+                        console.log('使用本地缓存数据...');
+                        const games = JSON.parse(cachedData);
+                        this.normalizeAllFields(games);
+                        App.games = games;
+                        App.nextId = games.length + 1;
+                        App.saveData();
+                        App.render();
+                        this.saveLocalDataVersion(this.config.gamesDataVersion);
+                        success = true;
+                        console.log('本地缓存加载成功!');
+                    }
                 }
             }
             
-            if (gamesLoaded) {
+            if (success) {
                 App.showToast('同步成功');
                 console.log('=== 同步完成 ===');
+            } else {
+                throw new Error(error || '所有数据源都失败');
             }
         } catch (e) {
             console.error('同步失败:', e);
