@@ -135,6 +135,20 @@ const App = {
             });
         }
 
+        const homeFilterBtn = document.getElementById('homeFilterBtn');
+        if (homeFilterBtn) {
+            homeFilterBtn.addEventListener('click', () => {
+                this.openFilterModal();
+            });
+        }
+
+        const homeSortBtn = document.getElementById('homeSortBtn');
+        if (homeSortBtn) {
+            homeSortBtn.addEventListener('click', () => {
+                this.openSortModal();
+            });
+        }
+
         const clearCacheBtn = document.getElementById('clearCacheBtn');
         if (clearCacheBtn) {
             clearCacheBtn.addEventListener('click', () => {
@@ -275,11 +289,27 @@ const App = {
                 } else if (this.tableState.sortColumn === 'updateDate') {
                     aVal = new Date(aVal);
                     bVal = new Date(bVal);
+                } else if (this.tableState.sortColumn === 'id') {
+                    aVal = String(aVal || '');
+                    bVal = String(bVal || '');
                 }
 
                 if (aVal < bVal) return this.tableState.sortDirection === 'asc' ? -1 : 1;
                 if (aVal > bVal) return this.tableState.sortDirection === 'asc' ? 1 : -1;
                 return 0;
+            });
+        } else {
+            games.sort((a, b) => {
+                const aDate = new Date(a.updateDate || 0);
+                const bDate = new Date(b.updateDate || 0);
+                
+                if (aDate.getTime() !== bDate.getTime()) {
+                    return bDate - aDate;
+                }
+                
+                const aId = String(a.id || '');
+                const bId = String(b.id || '');
+                return bId.localeCompare(aId);
             });
         }
 
@@ -818,6 +848,7 @@ const App = {
         }
         this.closeSortModal();
         this.renderTable();
+        this.renderHomeGames(document.getElementById('homeSearch')?.value || '');
         this.showToast('随机排序完成');
     },
 
@@ -829,6 +860,9 @@ const App = {
             if (column === 'updateDate' || column === 'createDate') {
                 valA = new Date(valA || 0);
                 valB = new Date(valB || 0);
+            } else if (column === 'id') {
+                valA = String(valA || '');
+                valB = String(valB || '');
             } else if (typeof valA === 'string') {
                 valA = valA.toLowerCase();
                 valB = valB.toLowerCase();
@@ -846,8 +880,12 @@ const App = {
             }
         });
         
+        this.tableState.sortColumn = column;
+        this.tableState.sortDirection = direction;
+        
         this.closeSortModal();
         this.renderTable();
+        this.renderHomeGames(document.getElementById('homeSearch')?.value || '');
         this.showToast('排序完成');
     },
 
@@ -1151,20 +1189,22 @@ const App = {
 
     renderCarousel() {
         const track = document.getElementById('carouselTrack');
-        track.innerHTML = this.carouselItems.map(item => `
-            <div class="carousel-item" style="background: linear-gradient(135deg, ${item.color}, #8b5cf6);">
-                <div class="carousel-content">
-                    <h3>${item.title}</h3>
-                    <p>${item.subtitle}</p>
-                </div>
-            </div>
-        `).join('');
-
         const dots = document.getElementById('carouselDots');
-        dots.innerHTML = this.carouselItems.map((_, i) => `
-            <div class="carousel-dot ${i === 0 ? 'active' : ''}"
-                 onclick="App.goToCarousel(${i})"></div>
-        `).join('');
+        if (track && dots) {
+            track.innerHTML = this.carouselItems.map(item => `
+                <div class="carousel-item" style="background: linear-gradient(135deg, ${item.color}, #8b5cf6);">
+                    <div class="carousel-content">
+                        <h3>${item.title}</h3>
+                        <p>${item.subtitle}</p>
+                    </div>
+                </div>
+            `).join('');
+
+            dots.innerHTML = this.carouselItems.map((_, i) => `
+                <div class="carousel-dot ${i === 0 ? 'active' : ''}"
+                     onclick="App.goToCarousel(${i})"></div>
+            `).join('');
+        }
     },
 
     startCarousel() {
@@ -1190,23 +1230,38 @@ const App = {
 
     renderCategories() {
         const container = document.getElementById('homeCategories');
-        container.innerHTML = this.categories.map(cat => `
-            <div class="category-card" onclick="App.filterHomeCategory('${cat.name}')">
-                <div class="category-card-icon">${cat.icon}</div>
-                <div class="category-card-name">${cat.name}</div>
-            </div>
-        `).join('');
+        if (container) {
+            container.innerHTML = this.categories.map(cat => `
+                <div class="category-card" onclick="App.filterHomeCategory('${cat.name}')">
+                    <div class="category-card-icon">${cat.icon}</div>
+                    <div class="category-card-name">${cat.name}</div>
+                </div>
+            `).join('');
+        }
     },
 
     renderHomeGames(query) {
-        let games = this.games.slice(0, 6);
+        let games = [...this.games];
         if (query) {
             const q = query.toLowerCase();
             games = this.games.filter(g => 
                 g.title.toLowerCase().includes(q) ||
                 g.category.toLowerCase().includes(q)
-            ).slice(0, 6);
+            );
         }
+
+        games.sort((a, b) => {
+            const aDate = new Date(a.updateDate || 0);
+            const bDate = new Date(b.updateDate || 0);
+            
+            if (aDate.getTime() !== bDate.getTime()) {
+                return bDate - aDate;
+            }
+            
+            const aId = String(a.id || '');
+            const bId = String(b.id || '');
+            return bId.localeCompare(aId);
+        });
 
         const container = document.getElementById('homeGames');
         container.innerHTML = games.map(game => `
