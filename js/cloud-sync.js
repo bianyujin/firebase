@@ -394,7 +394,7 @@ const CloudSync = {
                 continue;
             }
             
-            if (['id', 'icon', 'category', 'rating', 'downloads', 'description', 'updateDate', 'isFavorite', '_rawFields', '_rawData', 'title', 'privateData', '_fieldMap'].includes(key)) {
+            if (['id', 'icon', 'rating', 'downloads', 'description', 'updateDate', 'isFavorite', '_rawFields', '_rawData', 'title', 'privateData', '_fieldMap'].includes(key)) {
                 continue;
             }
             
@@ -412,7 +412,7 @@ const CloudSync = {
             
             if (mappedKey === 'title' && !mapped.title) {
                 mapped.title = allData[key];
-            } else if (mappedKey === 'category' && !mapped.category) {
+            } else if (mappedKey === 'category') {
                 mapped.category = allData[key];
             } else if (mappedKey === 'rating' && !mapped.rating) {
                 const val = parseFloat(allData[key]);
@@ -776,7 +776,10 @@ const CloudSync = {
         App.showToast('同步中...');
         console.log('=== syncFromCloud开始 ===');
         
-        const firebaseUrl = '';
+        console.log('清除旧缓存...');
+        localStorage.removeItem('gamehub_games');
+        localStorage.removeItem('gamehub_cached_games');
+        localStorage.removeItem('gamehub_data_version');
         
         await this.loadCloudConfig();
         
@@ -784,60 +787,12 @@ const CloudSync = {
             throw new Error('请先在config.json中配置games_data_url');
         }
         
-        this.config.localDataVersion = null;
-        console.log('GitHub CDN URL:', this.config.gamesDataUrl);
-        console.log('Firebase URL (备用):', firebaseUrl);
-
         try {
-            let success = false;
-            let error = null;
-            
-            try {
-                console.log('尝试从 GitHub CDN 同步...');
-                await this.syncFromGamesJson();
-                success = true;
-                console.log('GitHub CDN 同步成功!');
-            } catch (e) {
-                console.error('GitHub CDN 同步失败:', e);
-                error = e.message;
-                
-                try {
-                    if (firebaseUrl) {
-                        console.log('GitHub CDN 失败，尝试 Firebase (备用)...');
-                        const originalUrl = this.config.gamesDataUrl;
-                        this.config.gamesDataUrl = firebaseUrl;
-                        await this.syncFromGamesJson();
-                        success = true;
-                        console.log('Firebase 同步成功!');
-                    } else {
-                        throw e;
-                    }
-                } catch (e2) {
-                    console.error('Firebase 同步失败:', e2);
-                    error = e2.message;
-                    
-                    const cachedData = localStorage.getItem('gamehub_cached_games');
-                    if (cachedData) {
-                        console.log('使用本地缓存数据...');
-                        const games = JSON.parse(cachedData);
-                        this.normalizeAllFields(games);
-                        App.games = games;
-                        App.nextId = games.length + 1;
-                        App.saveData();
-                        App.render();
-                        this.saveLocalDataVersion(this.config.gamesDataVersion);
-                        success = true;
-                        console.log('本地缓存加载成功!');
-                    }
-                }
-            }
-            
-            if (success) {
-                App.showToast('同步成功');
-                console.log('=== 同步完成 ===');
-            } else {
-                throw new Error(error || '所有数据源都失败');
-            }
+            console.log('开始同步游戏数据...');
+            await this.syncFromGamesJson();
+            console.log('同步成功!');
+            App.showToast('同步成功');
+            console.log('=== 同步完成 ===');
         } catch (e) {
             console.error('同步失败:', e);
             App.showToast('同步失败: ' + e.message);
@@ -845,12 +800,7 @@ const CloudSync = {
     },
 
     async syncFromGamesJson() {
-        if (this.config.gamesDataVersion && 
-            this.config.localDataVersion &&
-            this.config.gamesDataVersion === this.config.localDataVersion) {
-            App.showToast('数据已是最新');
-            return;
-        }
+        console.log('强制刷新，忽略版本检查...');
 
         let url = this.config.gamesDataUrl;
         
