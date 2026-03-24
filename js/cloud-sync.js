@@ -325,7 +325,7 @@ const CloudSync = {
         const mapped = {
             id: game.id || Date.now() + Math.random(),
             icon: game.icon || '🎮',
-            category: game.category || '其他',
+            category: game.category || '',
             rating: game.rating || 0,
             downloads: game.downloads || '-',
             description: game.description || '',
@@ -382,7 +382,11 @@ const CloudSync = {
         for (const key of allKeys) {
             const keyClean = key.toLowerCase().replace(/[\[\]（）\(\)\s]/g, '');
             
-            if (key.includes('文件ID') || keyClean.includes('fileid') || keyClean.includes('id') && keyClean.length <= 3) {
+            if (key === 'id') {
+                continue;
+            }
+            
+            if (key.includes('文件ID') || keyClean.includes('fileid')) {
                 mapped._rawData[key] = allData[key];
                 if (!mapped._rawFields.includes(key)) {
                     mapped._rawFields.unshift(key);
@@ -424,6 +428,10 @@ const CloudSync = {
 
         if (!mapped.title) {
             mapped.title = '未命名';
+        }
+
+        if (!mapped.category) {
+            mapped.category = '其他';
         }
 
         return mapped;
