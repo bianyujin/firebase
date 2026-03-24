@@ -759,15 +759,60 @@ const CloudSync = {
         App.showToast('同步中...');
         console.log('=== syncFromCloud开始 ===');
         
-        this.config.gamesDataUrl = 'https://galgame-a5758-default-rtdb.asia-southeast1.firebasedatabase.app/games.json';
+        const firebaseUrl = 'https://galgame-a5758-default-rtdb.asia-southeast1.firebasedatabase.app/games.json';
+        const githubUrl = 'https://cdn.jsdelivr.net/gh/bianyujin/gameapp@v1.00/games.json';
+        
         this.config.gamesDataVersion = '2026032403';
         this.config.localDataVersion = null;
-        console.log('硬编码gamesDataUrl:', this.config.gamesDataUrl);
+        console.log('GitHub CDN URL:', githubUrl);
+        console.log('Firebase URL (备用):', firebaseUrl);
 
         try {
-            console.log('开始同步游戏数据...');
-            await this.syncFromGamesJson();
-            console.log('同步完成!');
+            let success = false;
+            let error = null;
+            
+            try {
+                console.log('尝试从 GitHub CDN 同步...');
+                this.config.gamesDataUrl = githubUrl;
+                await this.syncFromGamesJson();
+                success = true;
+                console.log('GitHub CDN 同步成功!');
+            } catch (e) {
+                console.error('GitHub CDN 同步失败:', e);
+                error = e.message;
+                
+                try {
+                    console.log('GitHub CDN 失败，尝试 Firebase (备用)...');
+                    this.config.gamesDataUrl = firebaseUrl;
+                    await this.syncFromGamesJson();
+                    success = true;
+                    console.log('Firebase 同步成功!');
+                } catch (e2) {
+                    console.error('Firebase 同步失败:', e2);
+                    error = e2.message;
+                    
+                    const cachedData = localStorage.getItem('gamehub_cached_games');
+                    if (cachedData) {
+                        console.log('使用本地缓存数据...');
+                        const games = JSON.parse(cachedData);
+                        this.normalizeAllFields(games);
+                        App.games = games;
+                        App.nextId = games.length + 1;
+                        App.saveData();
+                        App.render();
+                        this.saveLocalDataVersion(this.config.gamesDataVersion);
+                        success = true;
+                        console.log('本地缓存加载成功!');
+                    }
+                }
+            }
+            
+            if (success) {
+                App.showToast('同步成功');
+                console.log('=== 同步完成 ===');
+            } else {
+                throw new Error(error || '所有数据源都失败');
+            }
         } catch (e) {
             console.error('同步失败:', e);
             App.showToast('同步失败: ' + e.message);
@@ -1115,35 +1160,6 @@ const CloudSync = {
     },
 
     async loadCloudConfig(forceRefresh = false) {
-        try {
-            const url = './config.json';
-            
-            console.log('Loading config from:', url);
-            
-            const response = await fetch(url);
-            
-            console.log('Config response status:', response.status);
-            
-            if (response.ok) {
-                const config = await response.json();
-                console.log('Loaded config:', config);
-                this.config.latestVersion = config?.latest_version || null;
-                this.config.updateUrl = config?.update_url || null;
-                this.config.cloudAdminPassword = config?.admin_password || null;
-                this.config.gamesDataUrl = config?.games_data_url || null;
-                this.config.gamesDataVersion = config?.games_data_version || null;
-                this.config.notionCsvUrl = config?.notion_csv_url || null;
-                this.config.notionEmbedUrl = config?.notion_embed_url || null;
-                this.saveConfig();
-                console.log('Updated config:', this.config);
-                return true;
-            } else {
-                console.error('Failed to load config, status:', response.status);
-            }
-        } catch (e) {
-            console.error('读取云端配置失败:', e);
-        }
-        
         console.log('使用硬编码默认配置');
         this.config.latestVersion = '2.0.0';
         this.config.updateUrl = 'https://pan.baidu.com/s/1cnng925doaegghKTx7Oo3w?pwd=BAYJ';
