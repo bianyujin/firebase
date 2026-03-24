@@ -201,9 +201,9 @@
             if (notionBackupBtn) {
                 notionBackupBtn.addEventListener('click', async () => {
                     await CloudSync.loadCloudConfig();
-                    let notionUrl = CloudSync.config.notionEmbedUrl || 'https://www.notion.so/30ad9616662180568b20d6d607924c76?v=30ad96166621802abfa8000cc45c28e6&source=copy_link';
+                    let notionUrl = CloudSync.config.notionEmbedUrl || '';
                     const iframe = document.getElementById('notionIframe');
-                    if (iframe) {
+                    if (iframe && notionUrl) {
                         iframe.src = notionUrl;
                     }
                     if (App && App.switchPage) {
@@ -249,12 +249,10 @@
             if (userLoginBtn) {
                 userLoginBtn.addEventListener('click', () => {
                     if (ReviewSystem.isLoggedIn()) {
-                        if (confirm('确定要退出登录吗？')) {
-                            localStorage.removeItem('gamehub_current_user');
-                            ReviewSystem.currentUser = null;
-                            App.showToast('已退出登录');
-                            location.reload();
-                        }
+                        localStorage.removeItem('gamehub_current_user');
+                        ReviewSystem.currentUser = null;
+                        App.showToast('已退出登录');
+                        location.reload();
                     } else {
                         ReviewSystem.openUserLogin();
                     }

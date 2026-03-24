@@ -768,13 +768,13 @@ const CloudSync = {
         App.showToast('同步中...');
         console.log('=== syncFromCloud开始 ===');
         
-        const firebaseUrl = 'https://galgame-a5758-default-rtdb.asia-southeast1.firebasedatabase.app/games.json';
-        const githubUrl = 'https://cdn.jsdelivr.net/gh/bianyujin/gameapp@v1.00/games.json';
+        const firebaseUrl = '';
+        const githubUrl = '';
         
-        this.config.gamesDataVersion = '2026032403';
+        this.config.gamesDataVersion = '';
         this.config.localDataVersion = null;
-        console.log('GitHub CDN URL:', githubUrl);
-        console.log('Firebase URL (备用):', firebaseUrl);
+        console.log('GitHub CDN URL: (从config.json加载)');
+        console.log('Firebase URL (备用): (从config.json加载)');
 
         try {
             let success = false;
@@ -1169,15 +1169,15 @@ const CloudSync = {
     },
 
     async loadCloudConfig(forceRefresh = false) {
-        console.log('使用硬编码默认配置');
-        this.config.latestVersion = '2.0.0';
-        this.config.updateUrl = 'https://pan.baidu.com/s/1cnng925doaegghKTx7Oo3w?pwd=BAYJ';
-        this.config.cloudAdminPassword = '520hd123';
-        this.config.gamesDataUrl = 'https://github.com/bianyujin/gameapp/releases/download/v1.00/games.json';
-        this.config.gamesDataVersion = '2026032403';
-        this.config.notionEmbedUrl = 'https://resonant-laser-29e.notion.site/ebd//30ad9616662180568b20d6d607924c76?v=30ad96166621802abfa8000cc45c28e6';
+        console.log('使用默认配置（从config.json加载）');
+        this.config.latestVersion = '';
+        this.config.updateUrl = '';
+        this.config.cloudAdminPassword = '';
+        this.config.gamesDataUrl = '';
+        this.config.gamesDataVersion = '';
+        this.config.notionEmbedUrl = '';
         this.saveConfig();
-        console.log('硬编码配置已应用:', this.config);
+        console.log('配置已应用（需从config.json加载）:', this.config);
         return true;
     },
 

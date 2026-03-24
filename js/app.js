@@ -71,12 +71,26 @@ const App = {
             img.src = url + '?t=' + Date.now();
         };
         
-        fetch('https://api.lolicon.app/setu/v2?r18=0')
-            .then(response => response.json())
+        const r18Value = this.isAdmin ? 1 : 0;
+        
+        fetch(`https://api.lolicon.app/setu/v2?r18=${r18Value}&num=1&size=regular&size=original`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP错误: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
+                if (data && data.error) {
+                    throw new Error(`API错误: ${data.error}`);
+                }
                 if (data && data.data && data.data[0] && data.data[0].urls) {
                     const imageUrl = data.data[0].urls.regular || data.data[0].urls.original;
-                    loadImage(imageUrl);
+                    if (imageUrl) {
+                        loadImage(imageUrl);
+                    } else {
+                        throw new Error('没有可用的图片URL');
+                    }
                 } else {
                     throw new Error('API返回格式不对');
                 }
